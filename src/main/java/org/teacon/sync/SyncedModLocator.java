@@ -85,7 +85,7 @@ public final class SyncedModLocator implements IModLocator {
 
     public SyncedModLocator() throws Exception {
         final Path gameDir = Launcher.INSTANCE.environment().getProperty(IEnvironment.Keys.GAMEDIR.get()).orElse(Paths.get("."));
-        final Config cfg = GSON.fromJson(Files.newBufferedReader(gameDir.resolve("synced_mods.json"), StandardCharsets.UTF_8), Config.class);
+        final Config cfg = GSON.fromJson(Files.newBufferedReader(gameDir.resolve("remote_sync.json"), StandardCharsets.UTF_8), Config.class);
         this.keyRing = new BcPGPPublicKeyRingCollection(PGPUtil.getDecoderStream(Files.newInputStream(gameDir.resolve(cfg.keyRingPath))));
         for (PGPPublicKeyRing ring : this.keyRing) {
             for (PGPPublicKey pubKey : ring) {
