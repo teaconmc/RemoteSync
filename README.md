@@ -9,7 +9,7 @@ RemoteSync works in the following way:
   1. The "mod" itself *MUST* be in the `mods` directory for technical 
      reason.
   2. When game starts, RemoteSync loads the config file `remote_sync.json` 
-     (under your `--gameDir`) and load public key rings from the path 
+     (under your `gameDir`) and load public key rings from the path 
      specified in the config file.
   3. RemoteSync will then fetch the mod list from the URL given in the 
      config file `remote_sync.json` (under your `gameDir`). RemoteSync 
@@ -33,7 +33,7 @@ key(s) *and thus* public keys that those third parties trust. Example:
   2. Later, Bob and Clara meets in real life and exchanged their public 
      keys. Bob now trusts Clara.
   3. Now, Alice can trust Clara because Alice trusts Bob and Bob trusts 
-     Carol. 
+     Clara. 
   4. The network expands organically as more people (e.g. David, Elise, 
      Frank, ...) join in the same manner.
 
