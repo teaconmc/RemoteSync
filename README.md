@@ -28,10 +28,10 @@ Web of Trust][ref-2].
 Put it simple, users establish trusts by trusting third parties' public 
 key(s) *and thus* public keys that those third parties trust. Example: 
 
-  1. Alice and Bob meets in real life and exchanged their public keys. 
-     They thus start to trust each other. 
-  2. Later, Bob and Clara meets in real life and exchanged their public 
-     keys. Bob now trusts Clara.
+  1. Alice and Bob meets in real life, exchanged and signed their public 
+     keys. They thus start to trust each other. 
+  2. Later, Bob and Clara meets in real life, exchanged and signed their 
+     public keys. Bob now trusts Clara.
   3. Now, Alice can trust Clara because Alice trusts Bob and Bob trusts 
      Clara. 
   4. The network expands organically as more people (e.g. David, Elise, 
@@ -100,10 +100,17 @@ The mod list is a JSON file containing exactly one JSON Array that looks like:
 [cpw's serverpackloactor][ref-3] is a good candidate to consider if you feel 
 uncomfortable about setting up PGP keys. 
 
+If you accept using launch arguments, you can try [the `--fml.mavenRoots` 
+option][ref-4]. Do note that there is also `--fml.modLists` option which lets 
+you use several list files instead of stuffing everything in the arguments. 
+These list files MUST have extension of `list` (i.e. `foo.list`, `bar.list`), 
+and their contents are simply maven coordinates, one per line.
+
 There is currently no alternatives if you are from Fabric ecosystem. I have 
 started looking into it, but it is very tricky...
 
 [ref-3]: https://github.com/cpw/serverpacklocator
+[ref-4]: https://github.com/MinecraftForge/MinecraftForge/issues/5495#issuecomment-464916093
 
 ## To developers who want to go down the rabbit hole
 
