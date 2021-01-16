@@ -45,8 +45,6 @@ import org.bouncycastle.util.encoders.Hex;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
-import java.net.HttpURLConnection;
-import java.net.URLConnection;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
@@ -94,43 +92,28 @@ public final class SyncedModLocator implements IModLocator {
             }
         }
         this.modDirBase = Files.createDirectories(gameDir.resolve(cfg.modDir));
-        final URLConnection conn = cfg.modList.openConnection();
-        final Path modList = gameDir.resolve("mod_list.json");
-        final FileChannel fcModList;
-        if (Files.exists(modList)) {
-            conn.setIfModifiedSince(Files.getLastModifiedTime(modList).toMillis());
-            conn.setConnectTimeout(cfg.timeout);
-            conn.setUseCaches(false);
-            conn.connect();
-            if (conn instanceof HttpURLConnection) {
-                if (((HttpURLConnection) conn).getResponseCode() == HttpURLConnection.HTTP_NOT_MODIFIED) {
-                    // If remote does not update, we use local copy.
-                    fcModList = FileChannel.open(modList, StandardOpenOption.READ);
-                } else {
-                    // Otherwise, we have to fetch the newer version.
-                    fcModList = Utils.fetch(conn.getInputStream(), modList);
-                }
-            } else {
-                // Doesn't sound like a remote connection, we use the "remote" one anyway.
-                // It could very well be a local file, but there are also things like FTP
-                // which are pretty rare these days (it's 2020s after all!)
-                fcModList = Utils.fetch(conn.getInputStream(), modList);
-            }
-        } else {
-            fcModList = Utils.fetch(cfg.modList, modList);
-        }
         this.fetchPathsTask = CompletableFuture.supplyAsync(() -> {
+            try {
+                return Utils.fetch(cfg.modList, gameDir.resolve("mod_list.json"), cfg.timeout);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }).handleAsync((fcModList, exc) -> {
+            if (exc != null) {
+                return new ModEntry[0];
+            }
             try (Reader reader = Channels.newReader(fcModList, "UTF-8")) {
                 return GSON.fromJson(reader, ModEntry[].class);
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to fetch mod list from remote");
+            } catch (IOException e) {
+                LOGGER.warn("Failed to fetch mod list from remote", e);
+                return new ModEntry[0];
             }
         }).thenCompose(entries -> {
             List<CompletableFuture<Void>> tasks = new ArrayList<>();
             for (ModEntry e : entries) {
                 tasks.add(CompletableFuture.allOf(
-                        CompletableFuture.runAsync(() -> Utils.downloadIfMissing(this.modDirBase.resolve(e.name), e.file)),
-                        CompletableFuture.runAsync(() -> Utils.downloadIfMissing(this.modDirBase.resolve(e.name + ".sig"), e.file))
+                        CompletableFuture.runAsync(() -> Utils.downloadIfMissing(this.modDirBase.resolve(e.name), e.file, cfg.timeout)),
+                        CompletableFuture.runAsync(() -> Utils.downloadIfMissing(this.modDirBase.resolve(e.name + ".sig"), e.file, cfg.timeout))
                 ).exceptionally(t -> {
                     LOGGER.warn("Failed to download {}", e.name);
                     LOGGER.debug("Details: src = {}, dst = {}", e.file, e.name, t);

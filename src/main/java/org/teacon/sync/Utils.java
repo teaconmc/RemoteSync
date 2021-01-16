@@ -24,7 +24,9 @@ import org.bouncycastle.bcpg.PublicKeyAlgorithmTags;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLConnection;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
@@ -75,8 +77,8 @@ public final class Utils {
     }
 
     /**
-     * Blindly fetch bytes from the specified URL, write to the given destination,
-     * and then return the open {@link FileChannel} back.
+     * Blindly fetch bytes from the specified URL with no timeout, write to the given
+     * destination, and then return the open {@link FileChannel} back.
      * @param src The source URL of the mod to download
      * @param dst the destination path of the mod to save
      * @return An open {@link FileChannel} with {@link StandardOpenOption#READ} set,
@@ -84,7 +86,41 @@ public final class Utils {
      * @throws IOException thrown if download fail
      */
     public static FileChannel fetch(URL src, Path dst) throws IOException {
-        return fetch(src.openStream(), dst);
+        return fetch(src, dst, 0);
+    }
+
+    /**
+     * Blindly fetch bytes from the specified URL with the specified timeout, write to
+     * the given destination, and then return the open {@link FileChannel} back.
+     * @param src The source URL of the mod to download
+     * @param dst the destination path of the mod to save
+     * @param timeout Time to wait before giving up the connection
+     * @return An open {@link FileChannel} with {@link StandardOpenOption#READ} set,
+     *         position at zero.
+     * @throws IOException thrown if download fail
+     */
+    public static FileChannel fetch(URL src, Path dst, int timeout) throws IOException {
+        final URLConnection conn = src.openConnection();
+        conn.setConnectTimeout(timeout);
+        if (Files.exists(dst)) {
+            conn.setIfModifiedSince(Files.getLastModifiedTime(dst).toMillis());
+            try {
+                conn.connect();
+            } catch (IOException e) {
+                // Connection failed, prefer local copy instead
+                return FileChannel.open(dst, StandardOpenOption.READ);
+            }
+            if (conn instanceof HttpURLConnection) {
+                if (((HttpURLConnection) conn).getResponseCode() == HttpURLConnection.HTTP_NOT_MODIFIED) {
+                    // If remote does not update, we use local copy.
+                    return FileChannel.open(dst, StandardOpenOption.READ);
+                }
+            }
+        }
+        // Otherwise, we have to fetch the newer version.
+        // It could very well be a local file, but there are also things like FTP
+        // which are pretty rare these days (it's 2020s after all!)
+        return fetch(conn.getInputStream(), dst);
     }
 
     /**
@@ -102,6 +138,7 @@ public final class Utils {
         try (ReadableByteChannel srcChannel = Channels.newChannel(src)) {
             // TODO do we need a larger value for the max. bytes to transfer?
             dstChannel.transferFrom(srcChannel, 0, Integer.MAX_VALUE);
+            dstChannel.position(0L); // Reset position back to start
             return dstChannel;
         }
     }
@@ -112,10 +149,10 @@ public final class Utils {
      * @param target The path to the file
      * @param src Fallback URL to download from if target does not exist
      */
-    public static void downloadIfMissing(Path target, URL src) {
+    public static void downloadIfMissing(Path target, URL src, int timeout) {
         if (!Files.exists(target)) {
             try {
-                fetch(src, target).close();
+                fetch(src, target, timeout).close();
             } catch (IOException e) {
                 try {
                     Files.deleteIfExists(target);
