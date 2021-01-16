@@ -1,0 +1,76 @@
+import java.time.Instant
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
+
+plugins {
+    id 'com.github.johnrengelman.shadow' version '6.1.0'
+    id 'java-library'
+    id 'eclipse'
+    id 'idea'
+    id 'maven-publish'
+}
+
+version = '0.0.0'
+group = 'org.teacon'
+archivesBaseName = 'ModSync'
+
+sourceCompatibility = targetCompatibility = JavaVersion.VERSION_1_8
+
+compileJava {
+    sourceCompatibility = targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+repositories {
+    mavenLocal()
+    jcenter()
+    maven {
+        name = "forge"
+        url = "http://files.minecraftforge.net/maven"
+    }
+}
+
+dependencies {
+    shadow group: 'org.bouncycastle', name: 'bcpg-jdk15on', version: '1.68'
+
+    implementation group: 'net.minecraftforge', name: 'forgespi', version: '3.2.0'
+    implementation group: 'cpw.mods', name: 'modlauncher', version: '8.0.6'
+    implementation group: 'com.google.code.gson', name: 'gson', version: '2.8.0'
+    implementation group: 'org.apache.logging.log4j', name: 'log4j-api', version: '2.11.2'
+}
+
+shadowJar {
+    // Only packages dependencies under `shadow` configuration
+    configurations = [ project.configurations.shadow ]
+
+    // No extra MANIFEST.MF
+    exclude 'META-INF/MANIFEST.MF'
+
+    // Relocate to avoid package conflict
+    relocate 'org.bouncycastle', 'org.teacon.sync.shadow.org.bouncycastle'
+
+    // Also relocate the package name inside all services files.
+    // See: https://github.com/johnrengelman/shadow/issues/291
+    mergeServiceFiles()
+}
+
+jar {
+    manifest {
+        attributes([
+            "Specification-Title": "ModSync",
+            "Specification-Vendor": "3TUSK",
+            "Specification-Version": "1.0",
+            "Implementation-Title": "ModSync",
+            "Implementation-Version": archiveVersion.get(),
+            "Implementation-Vendor": "3TUSK",
+            "Implementation-Timestamp": DateTimeFormatter.ISO_INSTANT.format(Instant.now().truncatedTo(ChronoUnit.SECONDS))
+        ], 'org.teacon.sync')
+    }
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifact jar
+        }
+    }
+}
