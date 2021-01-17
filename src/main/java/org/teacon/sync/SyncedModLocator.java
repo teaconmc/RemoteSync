@@ -53,7 +53,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -64,10 +64,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.jar.Manifest;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public final class SyncedModLocator implements IModLocator {
 
-    private static final Logger LOGGER = LogManager.getLogger(SyncedModLocator.class);
+    private static final Logger LOGGER = LogManager.getLogger("RemoteSync");
 
     private static final Gson GSON = new Gson();
 
@@ -108,20 +109,12 @@ public final class SyncedModLocator implements IModLocator {
                 LOGGER.warn("Failed to fetch mod list from remote", e);
                 return new ModEntry[0];
             }
-        }).thenCompose(entries -> {
-            List<CompletableFuture<Void>> tasks = new ArrayList<>();
-            for (ModEntry e : entries) {
-                tasks.add(CompletableFuture.allOf(
-                        CompletableFuture.runAsync(() -> Utils.downloadIfMissing(this.modDirBase.resolve(e.name), e.file, cfg.timeout)),
-                        CompletableFuture.runAsync(() -> Utils.downloadIfMissing(this.modDirBase.resolve(e.name + ".sig"), e.file, cfg.timeout))
-                ).exceptionally(t -> {
-                    LOGGER.warn("Failed to download {}", e.name);
-                    LOGGER.debug("Details: src = {}, dst = {}", e.file, e.name, t);
-                    return null;
-                }));
-            }
-            return CompletableFuture.allOf(tasks.toArray(new CompletableFuture<?>[0]));
-        });
+        }).thenComposeAsync(entries -> CompletableFuture.allOf(
+                Arrays.stream(entries).flatMap(e -> Stream.of(
+                        Utils.downloadIfMissingAsync(this.modDirBase.resolve(e.name), e.file, cfg.timeout),
+                        Utils.downloadIfMissingAsync(this.modDirBase.resolve(e.name + ".sig"), e.file, cfg.timeout)
+                )).toArray(CompletableFuture[]::new)
+        ));
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             for (Path p : this.invalidFiles) {
                 try {

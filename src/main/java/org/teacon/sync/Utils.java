@@ -20,6 +20,10 @@
 
 package org.teacon.sync;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.Marker;
+import org.apache.logging.log4j.MarkerManager;
 import org.bouncycastle.bcpg.PublicKeyAlgorithmTags;
 
 import java.io.IOException;
@@ -37,8 +41,12 @@ import java.nio.file.StandardOpenOption;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 public final class Utils {
+
+    private static final Logger LOGGER = LogManager.getLogger("RemoteSync");
+    private static final Marker MARKER = MarkerManager.getMarker("Downloader");
 
     private static final Set<OpenOption> OPTIONS;
     static {
@@ -144,23 +152,33 @@ public final class Utils {
     }
 
     /**
-     * Open a {@link FileChannel} for the given {@code target}, download it first
-     * if it does not exist yet.
+     * Asynchronously download the resource to the specified destination if it does
+     * not exist yet.
      * @param target The path to the file
      * @param src Fallback URL to download from if target does not exist
+     * @param timeout Number of milliseconds to wait before giving up connection
+     * @return A {@link CompletableFuture} that represents this task.
      */
-    public static void downloadIfMissing(Path target, URL src, int timeout) {
-        if (!Files.exists(target)) {
+    public static CompletableFuture<Void> downloadIfMissingAsync(Path target, URL src, int timeout) {
+        return CompletableFuture.supplyAsync(() -> {
             try {
-                fetch(src, target, timeout).close();
+                return fetch(src, target, timeout);
             } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }).handleAsync((fc, e) -> {
+            if (e != null) {
+                LOGGER.warn(MARKER,"Failed to download {}", src);
+                LOGGER.debug(MARKER, "Details: src = {}, dst = {}", src, target, e);
+            } else if (fc != null) {
                 try {
-                    Files.deleteIfExists(target);
+                    fc.close();
                 } catch (IOException ignored) {
                     // No-op
                 }
             }
-        }
+            return null;
+        });
     }
 
 }
