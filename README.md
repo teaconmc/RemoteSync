@@ -2,6 +2,38 @@
 
 ... is forbidden magic that keeps your mods updated.
 
+## Preface
+
+The keywords "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", 
+"SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this document are to be 
+interpreted as described in [RFC 2119](https://tools.ietf.org/html/rfc2119).
+
+## Tl;dr: how to?
+
+  1. This mod requires Forge (FML, to be exact). 
+     - For any Forge versions 28.1.65 or onward, drop this into your `mods` 
+       folder. 
+       You MUST NOT try using RemoteSync to load RemoteSync itself. It will 
+       never work.
+     - For any Forge versions 25.0.0 - 28.1.64: this *might* work, but you 
+       *MUST* somehow put this into your classpath. 
+       If you choose these Forge versions, you will also not receive any 
+       technical support here. Updates.
+     - For any Forge versions 14.23.5.2855 or downward: this does NOT work 
+       on older versions, at all. See "Alternatives" section below for 
+       possible solutions.
+  2. Prepare [a collection of PGP public keys](#trust-model). You SHOULD make 
+     sure that your users trust these public keys.
+  3. Host all of your mods and [your mod list](#mod-list-format) publicly. 
+     How to keep your list updated is up to you. 
+  4. Prepare your [`remote_sync.json`](#config-file-remote_syncjson).
+  5. When packaging, only include the key rings and config file.
+
+<!-- 
+You might want to ask why 28.1.65? Because it includes the following commit:
+https://github.com/MinecraftForge/MinecraftForge/commit/3bf6c17bb8ae924d0bfbcd896624dc59480ed8dd
+-->
+
 ## Workflow
 
 RemoteSync works in the following way:
@@ -106,11 +138,15 @@ you use several list files instead of stuffing everything in the arguments.
 These list files MUST have extension of `list` (i.e. `foo.list`, `bar.list`), 
 and their contents are simply maven coordinates, one per line.
 
+Older versions of Forge (for Minecraft 1.12.2 or older) has [two options with 
+similar functionalities: `--mods` and `--modListFile`][ref-5].
+
 There is currently no alternatives if you are from Fabric ecosystem. I have 
 started looking into it, but it is very tricky...
 
 [ref-3]: https://github.com/cpw/serverpacklocator
 [ref-4]: https://github.com/MinecraftForge/MinecraftForge/issues/5495#issuecomment-464916093
+[ref-5]: https://github.com/MinecraftForge/FML/wiki/New-JSON-Modlist-format
 
 ## To developers who want to go down the rabbit hole
 
