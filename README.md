@@ -12,11 +12,12 @@ interpreted as described in [RFC 2119](https://tools.ietf.org/html/rfc2119).
 
   1. This mod requires Forge (FML, to be exact). 
      - For any Forge versions 28.1.65 or onward, drop this into your `mods` 
-       folder. 
+       folder. Still, you SHOULD use sufficiently new Minecraft and Forge 
+       versions (i.e. those in active development or LTS).   
        You MUST NOT try using RemoteSync to load RemoteSync itself. It will 
        never work.
      - For any Forge versions 25.0.0 - 28.1.64: this *might* work, but you 
-       *MUST* somehow put this into your classpath. 
+       *MUST* somehow put this into your classpath.  
        If you choose these Forge versions, you will also not receive any 
        technical support here. Updates.
      - For any Forge versions 14.23.5.2855 or downward: this does NOT work 
