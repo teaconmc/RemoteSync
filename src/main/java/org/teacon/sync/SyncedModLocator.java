@@ -112,7 +112,7 @@ public final class SyncedModLocator implements IModLocator {
         }).thenComposeAsync(entries -> CompletableFuture.allOf(
                 Arrays.stream(entries).flatMap(e -> Stream.of(
                         Utils.downloadIfMissingAsync(this.modDirBase.resolve(e.name), e.file, cfg.timeout),
-                        Utils.downloadIfMissingAsync(this.modDirBase.resolve(e.name + ".sig"), e.file, cfg.timeout)
+                        Utils.downloadIfMissingAsync(this.modDirBase.resolve(e.name + ".sig"), e.sig, cfg.timeout)
                 )).toArray(CompletableFuture[]::new)
         ));
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -231,6 +231,10 @@ public final class SyncedModLocator implements IModLocator {
                     sigList = getSigList(sig);
                 } catch (Exception e) {
                     LOGGER.warn("Failed to read signature for {}, verification automatically fails", modFile.getFileName());
+                    return false;
+                }
+                if (sigList == null) {
+                    LOGGER.warn("Failed to load any signature for {}, check if you downloaded the wrong file", modFile.getFileName());
                     return false;
                 }
                 final boolean pass = verifyDetached(mod, sigList, this.keyRing);
