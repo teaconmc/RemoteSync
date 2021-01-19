@@ -8,6 +8,7 @@ plugins {
     id 'eclipse'
     id 'idea'
     id 'maven-publish'
+    id 'signing'
 }
 
 version = '0.0.0'
@@ -69,8 +70,79 @@ jar {
 
 publishing {
     publications {
-        mavenJava(MavenPublication) {
+        release(MavenPublication) {
+            groupId = "org.teacon"
+            artifactId = "RemoteSync-FML"
+
             artifact jar
+            artifact shadowJar
+
+            pom {
+                name = 'RemoteSync for FML'
+                description = 'Forbidden magic that automatically keeps your mods updated'
+                url = 'https://github.com/teaconmc/RemoteSync'
+                licenses {
+                    license {
+                        name = 'LGPL-2.1-or-later'
+                        url = 'https://github.com/teaconmc/RemoteSync/tree/bleeding/COPYING.LGPL'
+                    }
+                }
+                developers {
+                    developer {
+                        id = '3TUSK'
+                        name = '3TUSK'
+                    }
+                }
+                issueManagement {
+                    system = 'GitHub Issues'
+                    url = 'https://github.com/teaconmc/RemoteSync/issues'
+                }
+                scm {
+                    url = 'https://github.com/teaconmc/RemoteSync'
+                    connection = 'scm:git:git://github.com/teaconmc/RemoteSync.git'
+                    developerConnection = 'scm:git:git@github.com:teaconmc/RemoteSync.git'
+                }
+            }
         }
+    }
+    repositories {
+        maven {
+            name = "archive"
+            url = "https://maven.hub.tritusk.info/releases"
+            credentials {
+                username = System.env.MAVEN_USERNAME
+                password = System.env.MAVEN_PASSWORD
+            }
+        }
+    }
+}
+
+// https://docs.gradle.org/current/userguide/signing_plugin.html
+// https://gist.github.com/phit/bd3c6d156a2fa5f3b1bc15fa94b3256c
+signing {
+    // GitHub Action environments provide GnuPG 2.2 so we can do this
+    if (System.env.GITHUB_ACTIONS) {
+        // TODO Allow forcing GnuPG
+        useGpgCmd()
+    }
+    sign publishing.publications.release
+}
+
+tasks.withType(PublishToMavenRepository) {
+    onlyIf {
+        System.env.MAVEN_USERNAME && System.env.MAVEN_PASSWORD
+    }
+}
+
+/**
+ * A simple task to pass down the artifact name and path to other GitHub actions.
+ */
+task("githubActionOutput") {
+    onlyIf {
+        System.env.GITHUB_ACTIONS
+    }
+    doLast {
+        println "::set-output name=artifact_path::${shadowJar.archiveFile.get().asFile.absolutePath}"
+        println "::set-output name=artifact_name::${shadowJar.archiveFileName.get()}"
     }
 }
