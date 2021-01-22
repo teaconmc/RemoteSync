@@ -80,6 +80,7 @@ public final class SyncedModLocator implements IModLocator {
 
     private final CompletableFuture<Void> fetchPathsTask;
 
+    private Set<String> allowedFiles = Collections.emptySet();
     private final Set<Path> invalidFiles = new HashSet<>();
 
     public SyncedModLocator() throws Exception {
@@ -109,6 +110,8 @@ public final class SyncedModLocator implements IModLocator {
                 LOGGER.warn("Failed to fetch mod list from remote", e);
                 return new ModEntry[0];
             }
+        }).whenComplete((entries, err) -> {
+            this.allowedFiles = Arrays.stream(entries).map(e -> e.name).collect(Collectors.toSet());
         }).thenComposeAsync(entries -> CompletableFuture.allOf(
                 Arrays.stream(entries).flatMap(e -> Stream.of(
                         Utils.downloadIfMissingAsync(this.modDirBase.resolve(e.name), e.file, cfg.timeout),
@@ -183,6 +186,7 @@ public final class SyncedModLocator implements IModLocator {
                     // Work around https://github.com/MinecraftForge/MinecraftForge/issues/6756
                     // The signature check MUST be in the place for best-effort safety
                     .filter(this::isValid)
+                    .filter(mod -> this.allowedFiles.contains(mod.getFileName()))
                     .collect(Collectors.toList());
         } catch (Exception e) {
             LOGGER.error("Mod downloading worker encountered error and cannot continue. " +
