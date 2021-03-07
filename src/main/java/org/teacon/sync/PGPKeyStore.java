@@ -91,7 +91,7 @@ public class PGPKeyStore {
         final Map<Long, PGPPublicKeyRing> keyRings = new HashMap<>();
         readKeys(Files.newInputStream(localKeyStorePath), keyRings);
         for (String keyId : keyIds) {
-            final String queryParams = "/pks/lookup?op=get&search=" + keyId;
+            final String queryParams = "/pks/lookup?op=get&search=".concat(keyId);
             for (URL keyServer : keyServers) {
                 final URL resolved = resolveSrv(keyServer);
                 final URL keyQuery = new URL(resolved.getProtocol(), resolved.getHost(), resolved.getPort(), queryParams);
