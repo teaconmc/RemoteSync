@@ -26,26 +26,16 @@ import cpw.mods.modlauncher.api.IEnvironment;
 import net.minecraftforge.forgespi.Environment;
 import net.minecraftforge.forgespi.locating.IModFile;
 import net.minecraftforge.forgespi.locating.IModLocator;
-import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bouncycastle.openpgp.PGPCompressedData;
-import org.bouncycastle.openpgp.PGPException;
-import org.bouncycastle.openpgp.PGPPublicKey;
-import org.bouncycastle.openpgp.PGPPublicKeyRing;
-import org.bouncycastle.openpgp.PGPPublicKeyRingCollection;
-import org.bouncycastle.openpgp.PGPSignature;
 import org.bouncycastle.openpgp.PGPSignatureList;
 import org.bouncycastle.openpgp.PGPUtil;
 import org.bouncycastle.openpgp.bc.BcPGPObjectFactory;
-import org.bouncycastle.openpgp.bc.BcPGPPublicKeyRingCollection;
-import org.bouncycastle.openpgp.operator.bc.BcPGPContentVerifierBuilderProvider;
-import org.bouncycastle.util.encoders.Hex;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
-import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
@@ -76,7 +66,7 @@ public final class SyncedModLocator implements IModLocator {
 
     private final Path modDirBase;
 
-    private final PGPPublicKeyRingCollection keyRing;
+    private final PGPKeyStore keyStore;
 
     private final CompletableFuture<Void> fetchPathsTask;
 
@@ -86,13 +76,9 @@ public final class SyncedModLocator implements IModLocator {
     public SyncedModLocator() throws Exception {
         final Path gameDir = Launcher.INSTANCE.environment().getProperty(IEnvironment.Keys.GAMEDIR.get()).orElse(Paths.get("."));
         final Config cfg = GSON.fromJson(Files.newBufferedReader(gameDir.resolve("remote_sync.json"), StandardCharsets.UTF_8), Config.class);
-        this.keyRing = new BcPGPPublicKeyRingCollection(PGPUtil.getDecoderStream(Files.newInputStream(gameDir.resolve(cfg.keyRingPath))));
-        for (PGPPublicKeyRing ring : this.keyRing) {
-            for (PGPPublicKey pubKey : ring) {
-                LOGGER.printf(Level.DEBUG, "Public Key ID = %1$016X, Algo = %2$s, Fingerprint = %3$s",
-                        pubKey.getKeyID(), Utils.getKeyAlgorithm(pubKey.getAlgorithm()), Hex.toHexString(pubKey.getFingerprint()));
-            }
-        }
+        final Path keyStorePath = gameDir.resolve(cfg.keyRingPath);
+        this.keyStore = new PGPKeyStore(keyStorePath, cfg.keyServers, cfg.keyIds);
+        this.keyStore.debugDump();
         this.modDirBase = Files.createDirectories(gameDir.resolve(cfg.modDir));
         this.fetchPathsTask = CompletableFuture.supplyAsync(() -> {
             try {
@@ -126,6 +112,7 @@ public final class SyncedModLocator implements IModLocator {
                     // No-op
                 }
             }
+            this.keyStore.saveTo(keyStorePath);
         }, "RemoteSync Clean-up"));
     }
 
@@ -143,38 +130,6 @@ public final class SyncedModLocator implements IModLocator {
             }
         }
         return sigList;
-    }
-
-    private static boolean verifyDetached(FileChannel src, PGPSignatureList sigList, PGPPublicKeyRingCollection keyRing) {
-        for (PGPSignature sig : sigList) {
-            try {
-                sig.init(new BcPGPContentVerifierBuilderProvider(), keyRing.getPublicKey(sig.getKeyID()));
-                // Has to be a heap buffer, BouncyCastle only supports passing in byte[]
-                ByteBuffer buf = ByteBuffer.allocate(1 << 12);
-                src.position(0);
-                int limit;
-                while ((limit = src.read(buf)) != -1) {
-                    buf.flip(); // limit = pos, pos = 0
-                    sig.update(buf.array(), 0, limit);
-                    buf.clear(); // limit = cap, pos = 0
-                }
-                if (!sig.verify()) {
-                    LOGGER.printf(Level.WARN, "Signature verification failed (%1$s key %2$016X, made on %3$tc)",
-                            PGPUtil.getSignatureName(sig.getKeyAlgorithm(), sig.getHashAlgorithm()), sig.getKeyID(), sig.getCreationTime());
-                    return false;
-                } else {
-                    LOGGER.printf(Level.DEBUG, "Signature verified: %1$s key %2$016X, made on %3$tc",
-                            PGPUtil.getSignatureName(sig.getKeyAlgorithm(), sig.getHashAlgorithm()), sig.getKeyID(), sig.getCreationTime());
-                }
-            } catch (PGPException e) {
-                LOGGER.printf(Level.WARN, "Cannot find key %1$016X in current key ring, or the key/hash algorithm is unknown/unsupported", sig.getKeyID());
-                return false;
-            } catch (IOException e) {
-                LOGGER.warn("Failed to read file while checking signature", e);
-                return false;
-            }
-        }
-        return true;
     }
 
     @Override
@@ -241,7 +196,7 @@ public final class SyncedModLocator implements IModLocator {
                     LOGGER.warn("Failed to load any signature for {}, check if you downloaded the wrong file", modFile.getFileName());
                     return false;
                 }
-                final boolean pass = verifyDetached(mod, sigList, this.keyRing);
+                final boolean pass = this.keyStore.verify(mod, sigList);
                 if (pass) {
                     LOGGER.debug("Verification pass for {}", modFile.getFileName());
                 } else {
