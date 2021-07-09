@@ -119,6 +119,11 @@ public class PGPKeyStore {
         for (PGPSignature sig : sigList) {
             try {
                 PGPPublicKey pubKey = this.keyRings.getPublicKey(sig.getKeyID());
+                if (pubKey == null) {
+                    LOGGER.printf(Level.WARN, MARKER, "Cannot find key %1$016X in current key ring, signature cannot be verified",
+                            sig.getKeyID());
+                    return false;
+                }
                 sig.init(new BcPGPContentVerifierBuilderProvider(), pubKey);
                 // Has to be a heap buffer, BouncyCastle only supports passing in byte[]
                 ByteBuffer buf = ByteBuffer.allocate(1 << 12);
@@ -131,22 +136,23 @@ public class PGPKeyStore {
                 }
                 if (!sig.verify()) {
                     LOGGER.printf(Level.WARN, MARKER, "Signature verification failed (%1$s key %2$016X, made on %3$tc)",
-                            PGPUtil.getSignatureName(sig.getKeyAlgorithm(), sig.getHashAlgorithm()), sig.getKeyID(), sig.getCreationTime());
+                            Utils.getKeyAlgorithm(sig.getKeyAlgorithm()), sig.getKeyID(), sig.getCreationTime());
                     return false;
                 } else if (pubKey.hasRevocation()) {
                     LOGGER.printf(Level.WARN, MARKER, "Signature verified (%1$s key %2$016X, made on %3$tc) but the key-pair has been revoked",
-                            PGPUtil.getSignatureName(sig.getKeyAlgorithm(), sig.getHashAlgorithm()), sig.getKeyID(), sig.getCreationTime());
+                            Utils.getKeyAlgorithm(sig.getKeyAlgorithm()), sig.getKeyID(), sig.getCreationTime());
                     return false;
                 } else if (hasExpired(pubKey)) {
                     LOGGER.printf(Level.WARN, MARKER, "Signature verified (%1$s key %2$016X, made on %3$tc) but the key-pair has expired",
-                            PGPUtil.getSignatureName(sig.getKeyAlgorithm(), sig.getHashAlgorithm()), sig.getKeyID(), sig.getCreationTime());
+                            Utils.getKeyAlgorithm(sig.getKeyAlgorithm()), sig.getKeyID(), sig.getCreationTime());
                     return false;
                 } else {
                     LOGGER.printf(Level.DEBUG, MARKER, "Signature verified: %1$s key %2$016X, made on %3$tc",
-                            PGPUtil.getSignatureName(sig.getKeyAlgorithm(), sig.getHashAlgorithm()), sig.getKeyID(), sig.getCreationTime());
+                            Utils.getKeyAlgorithm(sig.getKeyAlgorithm()), sig.getKeyID(), sig.getCreationTime());
                 }
             } catch (PGPException e) {
-                LOGGER.printf(Level.WARN, MARKER, "Cannot find key %1$016X in current key ring, or the key/hash algorithm is unknown/unsupported", sig.getKeyID());
+                LOGGER.warn(MARKER, "Unknown error occurred, signature verification automatically fails");
+                LOGGER.debug(MARKER, "Error details: ", e);
                 return false;
             } catch (IOException e) {
                 LOGGER.warn(MARKER,"Failed to read file while checking signature", e);

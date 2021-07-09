@@ -24,6 +24,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.Marker;
 import org.apache.logging.log4j.MarkerManager;
+import org.bouncycastle.bcpg.HashAlgorithmTags;
 import org.bouncycastle.bcpg.PublicKeyAlgorithmTags;
 
 import java.io.IOException;
@@ -84,6 +85,36 @@ public final class Utils {
         }
     }
 
+    public static String getHashAlgorithm(int algo) {
+        switch (algo) {
+            // MD
+            case HashAlgorithmTags.MD2: return "MD2";
+            case HashAlgorithmTags.MD5: return "MD5";
+
+            // SHA
+            case HashAlgorithmTags.SHA1: return "SHA1";
+            case HashAlgorithmTags.SHA224: return "SHA224";
+            case HashAlgorithmTags.SHA256: return "SHA256";
+            case HashAlgorithmTags.SHA384: return "SHA384";
+            case HashAlgorithmTags.SHA512: return "SHA512";
+            case HashAlgorithmTags.DOUBLE_SHA: return "DOUBLE-SHA";
+
+            // RIPEMD
+            // https://en.wikipedia.org/wiki/RIPEMD
+            case HashAlgorithmTags.RIPEMD160: return "RIPEMD160";
+
+            // Tiger
+            // https://en.wikipedia.org/wiki/Tiger_(hash_function)
+            case HashAlgorithmTags.TIGER_192: return "TIGER192";
+
+            // HAVAL
+            // https://en.wikipedia.org/wiki/HAVAL
+            case HashAlgorithmTags.HAVAL_5_160: return "HAVAL-5-160";
+
+            default: return "UNKNOWN";
+        }
+    }
+
     /**
      * Blindly fetch bytes from the specified URL with no timeout, write to the given
      * destination, and then return the open {@link FileChannel} back.
@@ -108,6 +139,7 @@ public final class Utils {
      * @throws IOException thrown if download fail
      */
     public static FileChannel fetch(URL src, Path dst, int timeout) throws IOException {
+        LOGGER.debug(MARKER, "Trying to decide how to get {}", src);
         final URLConnection conn = src.openConnection();
         conn.setConnectTimeout(timeout);
         if (Files.exists(dst)) {
@@ -116,11 +148,13 @@ public final class Utils {
                 conn.connect();
             } catch (IOException e) {
                 // Connection failed, prefer local copy instead
+                LOGGER.debug(MARKER, "Failed to download {}, fallback to local copy at {}", src, dst);
                 return FileChannel.open(dst, StandardOpenOption.READ);
             }
             if (conn instanceof HttpURLConnection) {
                 if (((HttpURLConnection) conn).getResponseCode() == HttpURLConnection.HTTP_NOT_MODIFIED) {
                     // If remote does not update, we use local copy.
+                    LOGGER.debug(MARKER, "Remote {} does not have updates, prefer use local copy at {}", src, dst);
                     return FileChannel.open(dst, StandardOpenOption.READ);
                 }
             }
@@ -128,6 +162,7 @@ public final class Utils {
         // Otherwise, we have to fetch the newer version.
         // It could very well be a local file, but there are also things like FTP
         // which are pretty rare these days (it's 2020s after all!)
+        LOGGER.debug(MARKER, "Fetching remote resource {}", src);
         return fetch(conn.getInputStream(), dst);
     }
 

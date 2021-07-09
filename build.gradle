@@ -11,7 +11,7 @@ plugins {
     id 'signing'
 }
 
-version = '0.0.0'
+version = '0.1.0'
 group = 'org.teacon'
 archivesBaseName = 'RemoteSync-FML'
 
@@ -22,7 +22,7 @@ compileJava {
 }
 
 repositories {
-    jcenter()
+    mavenCentral()
     maven {
         name = "forge"
         url = "http://files.minecraftforge.net/maven"

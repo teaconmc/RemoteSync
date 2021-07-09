@@ -84,6 +84,7 @@ public final class SyncedModLocator implements IModLocator {
             try {
                 return Utils.fetch(cfg.modList, gameDir.resolve("mod_list.json"), cfg.timeout);
             } catch (IOException e) {
+                LOGGER.warn("Failed to download mod list", e);
                 throw new RuntimeException(e);
             }
         }).handleAsync((fcModList, exc) -> {
