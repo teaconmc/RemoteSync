@@ -94,7 +94,7 @@ public class PGPKeyStore {
             readKeys(Files.newInputStream(localKeyStorePath), keyRings);
         }
         for (String keyId : keyIds) {
-            if (keyRings.containsKey(Long.decode(keyId))) {
+            if (keyRings.containsKey(keyId.startsWith("0x") ? Long.parseUnsignedLong(keyId.substring(2), 16) : Long.parseUnsignedLong(keyId, 16))) {
                 LOGGER.debug(MARKER,"Not trying to load key {} because it exists locally", keyId);
                 continue;
             }
