@@ -89,13 +89,21 @@ public class PGPKeyStore {
 
     public PGPKeyStore(Path localKeyStorePath, List<URL> keyServers, List<String> keyIds) throws Exception {
         final Map<Long, PGPPublicKeyRing> keyRings = new HashMap<>();
-        readKeys(Files.newInputStream(localKeyStorePath), keyRings);
+        if (Files.exists(localKeyStorePath)) {
+            LOGGER.debug(MARKER, "Try reading keys from local key ring at {}", localKeyStorePath);
+            readKeys(Files.newInputStream(localKeyStorePath), keyRings);
+        }
         for (String keyId : keyIds) {
+            if (keyRings.containsKey(Long.decode(keyId))) {
+                LOGGER.debug(MARKER,"Not trying to load key {} because it exists locally", keyId);
+                continue;
+            }
             final String queryParams = "/pks/lookup?op=get&search=".concat(keyId);
             for (URL keyServer : keyServers) {
                 final URL resolved = resolveSrv(keyServer);
                 final URL keyQuery = new URL(resolved.getProtocol(), resolved.getHost(), resolved.getPort(), queryParams);
                 try (InputStream input = keyQuery.openStream()) {
+                    LOGGER.debug(MARKER, "Receiving key {} from {}", keyId, keyServer);
                     readKeys(input, keyRings);
                     break; // Stop on first available key server
                 } catch (Exception ignored) {
