@@ -106,11 +106,11 @@ publishing {
     }
     repositories {
         maven {
-            name = "archive"
-            url = "https://maven.hub.tritusk.info/releases"
-            credentials {
-                username = System.env.MAVEN_USERNAME
-                password = System.env.MAVEN_PASSWORD
+            name = "teacon"
+            url = "s3://archive.teacon.org/maven/"
+            credentials(AwsCredentials) {
+                accessKey = System.env.ARCHIVE_ACCESS_KEY
+                secretKey = System.env.ARCHIVE_SECRET_KEY
             }
         }
     }
@@ -118,18 +118,19 @@ publishing {
 
 // https://docs.gradle.org/current/userguide/signing_plugin.html
 // https://gist.github.com/phit/bd3c6d156a2fa5f3b1bc15fa94b3256c
-signing {
-    // GitHub Action environments provide GnuPG 2.2 so we can do this
-    if (System.env.GITHUB_ACTIONS) {
-        // TODO Allow forcing GnuPG
-        useGpgCmd()
-    }
-    sign publishing.publications.release
-}
+//signing {
+//    // TODO Sign release
+//    if (System.env.GITHUB_ACTIONS) {
+//        useGpgCmd()
+//    }
+//    sign publishing.publications.release
+//}
 
 tasks.withType(PublishToMavenRepository) {
-    onlyIf {
-        System.env.MAVEN_USERNAME && System.env.MAVEN_PASSWORD
+    if (repository && repository.name == 'teacon') {
+        onlyIf {
+            System.env.ARCHIVE_ACCESS_KEY && System.env.ARCHIVE_SECRET_KEY
+        }
     }
 }
 
