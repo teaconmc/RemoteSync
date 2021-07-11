@@ -228,8 +228,15 @@ public class PGPKeyStore {
     }
 
     private static boolean hasExpired(PGPPublicKey pubKey) {
-        Instant creationTime = pubKey.getCreationTime().toInstant();
-        Instant expirationTime = creationTime.plus(pubKey.getValidSeconds(), ChronoUnit.SECONDS);
-        return Instant.now().isAfter(expirationTime);
+        long duration = pubKey.getValidSeconds();
+        if (duration > 0) {
+            // Only check expiration if getValidSeconds() returns a positive value
+            Instant creationTime = pubKey.getCreationTime().toInstant();
+            Instant expirationTime = creationTime.plus(duration, ChronoUnit.SECONDS);
+            return Instant.now().isAfter(expirationTime);
+        } else {
+            // If getValidSeconds() returns 0 or less it means no expiration.
+            return false;
+        }
     }
 }
