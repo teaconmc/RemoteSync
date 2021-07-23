@@ -222,7 +222,7 @@ public class PGPKeyStore {
                 return new URL(original.getProtocol(), results[3], port, "/");
             }
         } catch (Exception e) {
-            // TODO Log error
+            LOGGER.debug(MARKER, "Failed to resolve SRV record for '{}'", original, e);
         }
         return original;
     }

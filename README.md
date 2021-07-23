@@ -87,6 +87,8 @@ The following is explanation of this file:
 {
   "modDir": "remote_synced_mods",
   "keyRingPath": "public_keys.asc",
+  "keyServers": [],
+  "keyIds": [],
   "modList": "http://example.com/",
   "timeout": 15000
 }
@@ -96,7 +98,13 @@ The following is explanation of this file:
     mods. It is relative to your game directory (a.k.a. the `.minecraft` 
     directory).
   - `keyRingPath` is the path to the PGP key ring files whose contents are 
-    public keys that users trust. It is also relative to your game directory.
+    public keys that users trust. It also functions as the storage for keys 
+    received from designated key servers.
+    It is also relative to your game directory.
+  - `keyServers` is a list of key server URLs to receive keys from.
+  - `keyIds` is a list of keys to search on key servers specified above.
+    Usually, keys are described as a 16-digit-long hexadecimal number 
+    (i.e. the long format in GPG), without the `0x` prefix.
   - `modList` is the URL to the mod list. The format of mod list is in next 
     section.
   - `timeout` is the number of milliseconds for all remote connections to wait 

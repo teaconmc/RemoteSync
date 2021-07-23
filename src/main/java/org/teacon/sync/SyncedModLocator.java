@@ -75,7 +75,14 @@ public final class SyncedModLocator implements IModLocator {
 
     public SyncedModLocator() throws Exception {
         final Path gameDir = Launcher.INSTANCE.environment().getProperty(IEnvironment.Keys.GAMEDIR.get()).orElse(Paths.get("."));
-        final Config cfg = GSON.fromJson(Files.newBufferedReader(gameDir.resolve("remote_sync.json"), StandardCharsets.UTF_8), Config.class);
+        final Path cfgPath = gameDir.resolve("remote_sync.json");
+        final Config cfg;
+        if (Files.exists(cfgPath)) {
+            cfg = GSON.fromJson(Files.newBufferedReader(cfgPath, StandardCharsets.UTF_8), Config.class);
+        } else {
+        	LOGGER.warn("RemoteSync config remote_sync.json does not exist. All configurable values will use their default values instead.");
+            cfg = new Config();
+        }
         final Path keyStorePath = gameDir.resolve(cfg.keyRingPath);
         this.keyStore = new PGPKeyStore(keyStorePath, cfg.keyServers, cfg.keyIds);
         this.keyStore.debugDump();
