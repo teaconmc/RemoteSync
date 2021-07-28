@@ -40,6 +40,10 @@ public final class Config {
      */
     public String modDir = "synced_mods";
     /**
+     * Local mod list location for downloading
+     */
+    public String localModList = "mod_list.json";
+    /**
      * Path to the public keys ring file, relative to the Minecraft home directory.
      */
     // TODO Re-evaluate this one, we might want to hard code this

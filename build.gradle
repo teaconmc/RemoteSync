@@ -11,7 +11,7 @@ plugins {
     id 'signing'
 }
 
-version = '0.1.3'
+version = '0.1.4'
 group = 'org.teacon'
 archivesBaseName = 'RemoteSync-FML'
 
