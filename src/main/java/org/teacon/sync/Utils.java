@@ -120,12 +120,13 @@ public final class Utils {
      * destination, and then return the open {@link FileChannel} back.
      * @param src The source URL of the mod to download
      * @param dst the destination path of the mod to save
+     * @param biasedTowardLocalCache If true, local files are always used regardless of remote updates.
      * @return An open {@link FileChannel} with {@link StandardOpenOption#READ} set,
      *         position at zero.
      * @throws IOException thrown if download fail
      */
-    public static FileChannel fetch(URL src, Path dst) throws IOException {
-        return fetch(src, dst, 0);
+    public static FileChannel fetch(URL src, Path dst, boolean biasedTowardLocalCache) throws IOException {
+        return fetch(src, dst, 0, biasedTowardLocalCache);
     }
 
     /**
@@ -134,15 +135,20 @@ public final class Utils {
      * @param src The source URL of the mod to download
      * @param dst the destination path of the mod to save
      * @param timeout Time to wait before giving up the connection
+     * @param biasedTowardLocalCache If true, local files are always used regardless of remote updates.
      * @return An open {@link FileChannel} with {@link StandardOpenOption#READ} set,
      *         position at zero.
      * @throws IOException thrown if download fail
      */
-    public static FileChannel fetch(URL src, Path dst, int timeout) throws IOException {
+    public static FileChannel fetch(URL src, Path dst, int timeout, boolean biasedTowardLocalCache) throws IOException {
         LOGGER.debug(MARKER, "Trying to decide how to get {}", src);
         final URLConnection conn = src.openConnection();
         conn.setConnectTimeout(timeout);
         if (Files.exists(dst)) {
+            if (biasedTowardLocalCache) {
+                LOGGER.debug(MARKER, "Prefer to local copy at {} according to configurations", dst);
+                return FileChannel.open(dst, StandardOpenOption.READ);
+            }
             conn.setIfModifiedSince(Files.getLastModifiedTime(dst).toMillis());
             try {
                 conn.connect();
@@ -194,10 +200,10 @@ public final class Utils {
      * @param timeout Number of milliseconds to wait before giving up connection
      * @return A {@link CompletableFuture} that represents this task.
      */
-    public static CompletableFuture<Void> downloadIfMissingAsync(Path target, URL src, int timeout) {
+    public static CompletableFuture<Void> downloadIfMissingAsync(Path target, URL src, int timeout, boolean biasedTowardLocalCache) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                return fetch(src, target, timeout);
+                return fetch(src, target, timeout, biasedTowardLocalCache);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

@@ -64,4 +64,9 @@ public final class Config {
      * Amount of time to wait before giving up a connection, measured in milliseconds.
      */
     public int timeout = 15000;
+    /**
+     * If true, RemoteSync will always try using local cache, even if the file with the 
+     * same name on the remote server has been updated.
+     */
+    public boolean preferLocalCache = true;
 }

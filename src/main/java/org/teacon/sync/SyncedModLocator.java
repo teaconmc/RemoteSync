@@ -89,7 +89,7 @@ public final class SyncedModLocator implements IModLocator {
         this.modDirBase = Files.createDirectories(gameDir.resolve(cfg.modDir));
         this.fetchPathsTask = CompletableFuture.supplyAsync(() -> {
             try {
-                return Utils.fetch(cfg.modList, gameDir.resolve(cfg.localModList), cfg.timeout);
+                return Utils.fetch(cfg.modList, gameDir.resolve(cfg.localModList), cfg.timeout, cfg.preferLocalCache);
             } catch (IOException e) {
                 LOGGER.warn("Failed to download mod list", e);
                 throw new RuntimeException(e);
@@ -108,8 +108,8 @@ public final class SyncedModLocator implements IModLocator {
             this.allowedFiles = Arrays.stream(entries).map(e -> e.name).collect(Collectors.toSet());
         }).thenComposeAsync(entries -> CompletableFuture.allOf(
                 Arrays.stream(entries).flatMap(e -> Stream.of(
-                        Utils.downloadIfMissingAsync(this.modDirBase.resolve(e.name), e.file, cfg.timeout),
-                        Utils.downloadIfMissingAsync(this.modDirBase.resolve(e.name + ".sig"), e.sig, cfg.timeout)
+                        Utils.downloadIfMissingAsync(this.modDirBase.resolve(e.name), e.file, cfg.timeout, cfg.preferLocalCache),
+                        Utils.downloadIfMissingAsync(this.modDirBase.resolve(e.name + ".sig"), e.sig, cfg.timeout, cfg.preferLocalCache)
                 )).toArray(CompletableFuture[]::new)
         ));
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
