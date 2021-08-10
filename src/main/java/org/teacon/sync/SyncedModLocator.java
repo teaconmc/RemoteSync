@@ -89,7 +89,8 @@ public final class SyncedModLocator implements IModLocator {
         this.modDirBase = Files.createDirectories(gameDir.resolve(cfg.modDir));
         this.fetchPathsTask = CompletableFuture.supplyAsync(() -> {
             try {
-                return Utils.fetch(cfg.modList, gameDir.resolve(cfg.localModList), cfg.timeout, cfg.preferLocalCache);
+                // Intentionally do not use config value to ensure that the mod list is always up-to-date
+                return Utils.fetch(cfg.modList, gameDir.resolve(cfg.localModList), cfg.timeout, false);
             } catch (IOException e) {
                 LOGGER.warn("Failed to download mod list", e);
                 throw new RuntimeException(e);
