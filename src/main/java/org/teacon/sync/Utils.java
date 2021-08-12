@@ -43,6 +43,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 public final class Utils {
 
@@ -200,9 +201,10 @@ public final class Utils {
      * @param timeout Number of milliseconds to wait before giving up connection
      * @return A {@link CompletableFuture} that represents this task.
      */
-    public static CompletableFuture<Void> downloadIfMissingAsync(Path target, URL src, int timeout, boolean biasedTowardLocalCache) {
+    public static CompletableFuture<Void> downloadIfMissingAsync(Path target, URL src, int timeout, boolean biasedTowardLocalCache, Consumer<String> progressFeedback) {
         return CompletableFuture.supplyAsync(() -> {
             try {
+                progressFeedback.accept("RemoteSync: considering " + target.getFileName());
                 return fetch(src, target, timeout, biasedTowardLocalCache);
             } catch (IOException e) {
                 throw new RuntimeException(e);

@@ -63,8 +63,9 @@ public final class SyncedModLocator implements IModLocator {
     private static final Gson GSON = new Gson();
 
     private IModLocator parent;
-
+    
     private final Path modDirBase;
+    private final Consumer<String> progressFeed;
 
     private final PGPKeyStore keyStore;
 
@@ -74,6 +75,7 @@ public final class SyncedModLocator implements IModLocator {
     private final Set<Path> invalidFiles = new HashSet<>();
 
     public SyncedModLocator() throws Exception {
+        this.progressFeed = Launcher.INSTANCE.environment().getProperty(Environment.Keys.PROGRESSMESSAGE.get()).orElse(msg -> {});
         final Path gameDir = Launcher.INSTANCE.environment().getProperty(IEnvironment.Keys.GAMEDIR.get()).orElse(Paths.get("."));
         final Path cfgPath = gameDir.resolve("remote_sync.json");
         final Config cfg;
@@ -89,6 +91,7 @@ public final class SyncedModLocator implements IModLocator {
         this.modDirBase = Files.createDirectories(gameDir.resolve(cfg.modDir));
         this.fetchPathsTask = CompletableFuture.supplyAsync(() -> {
             try {
+                this.progressFeed.accept("RemoteSync: fetching mod list");
                 // Intentionally do not use config value to ensure that the mod list is always up-to-date
                 return Utils.fetch(cfg.modList, gameDir.resolve(cfg.localModList), cfg.timeout, false);
             } catch (IOException e) {
@@ -109,8 +112,8 @@ public final class SyncedModLocator implements IModLocator {
             this.allowedFiles = Arrays.stream(entries).map(e -> e.name).collect(Collectors.toSet());
         }).thenComposeAsync(entries -> CompletableFuture.allOf(
                 Arrays.stream(entries).flatMap(e -> Stream.of(
-                        Utils.downloadIfMissingAsync(this.modDirBase.resolve(e.name), e.file, cfg.timeout, cfg.preferLocalCache),
-                        Utils.downloadIfMissingAsync(this.modDirBase.resolve(e.name + ".sig"), e.sig, cfg.timeout, cfg.preferLocalCache)
+                        Utils.downloadIfMissingAsync(this.modDirBase.resolve(e.name), e.file, cfg.timeout, cfg.preferLocalCache, this.progressFeed),
+                        Utils.downloadIfMissingAsync(this.modDirBase.resolve(e.name + ".sig"), e.sig, cfg.timeout, cfg.preferLocalCache, this.progressFeed)
                 )).toArray(CompletableFuture[]::new)
         ));
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -190,6 +193,7 @@ public final class SyncedModLocator implements IModLocator {
     @Override
     public boolean isValid(IModFile modFile) {
         LOGGER.debug("Verifying {}", modFile.getFileName());
+        this.progressFeed.accept("RemoteSync: verifying " + modFile.getFileName());
         final Path modPath = modFile.getFilePath();
         final Path sigPath = modPath.resolveSibling(modFile.getFileName() + ".sig");
         try (FileChannel mod = FileChannel.open(modPath, StandardOpenOption.READ)) {
