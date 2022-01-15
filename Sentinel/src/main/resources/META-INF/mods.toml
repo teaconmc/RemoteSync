@@ -1,0 +1,19 @@
+modLoader="javafml"
+loaderVersion="[36,)"
+issueTrackerURL="https://github.com/teaconmc/RemoteSync"
+license="LGPL-2.1-or-later"
+
+[[mods]]
+modId="remote_sync_sentinel"
+displayName="RemoteSync Sentinel"
+version="${file.jarVersion}"
+authors="TeaConMC members"
+credits="cpw, for original idea"
+description="Companion mod used in conjunction with RemoteSync, for friendlier UX."
+
+[[dependencies.remote_sync_sentinel]]
+modId="forge"
+mandatory=true
+versionRange="[36.0.0,)"
+ordering="AFTER"
+side="BOTH"

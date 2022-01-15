@@ -158,6 +158,7 @@ public final class SyncedModLocator implements IModLocator {
         } catch (Exception e) {
             LOGGER.error("Mod downloading worker encountered error and cannot continue. " +
                     "No mod will be loaded from the remote-synced locator. ", e);
+            System.setProperty("org.teacon.sync.failed", "true");
             return Collections.emptyList();
         }
     }

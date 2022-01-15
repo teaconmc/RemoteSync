@@ -1,0 +1,3 @@
+{
+  "remote_sync.warn.incomplete": "RemoteSync has encountered error while fetching latest mods. The mod list is thus incomplete; joining server will cause error. Please restart the game."
+}
