@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2021 3TUSK
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -23,9 +23,8 @@ package org.teacon.sync;
 import com.google.gson.Gson;
 import cpw.mods.modlauncher.Launcher;
 import cpw.mods.modlauncher.api.IEnvironment;
+import net.minecraftforge.fml.loading.moddiscovery.AbstractJarFileLocator;
 import net.minecraftforge.forgespi.Environment;
-import net.minecraftforge.forgespi.locating.IModFile;
-import net.minecraftforge.forgespi.locating.IModLocator;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bouncycastle.openpgp.PGPCompressedData;
@@ -44,35 +43,24 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
+import java.util.Collection;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
-import java.util.jar.Manifest;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public final class SyncedModLocator implements IModLocator {
+public final class SyncedModLocator extends AbstractJarFileLocator {
 
     private static final Logger LOGGER = LogManager.getLogger("RemoteSync");
 
     private static final Gson GSON = new Gson();
 
-    private IModLocator parent;
-    
     private final Path modDirBase;
     private final Consumer<String> progressFeed;
 
     private final PGPKeyStore keyStore;
 
-    private final CompletableFuture<Void> fetchPathsTask;
-
-    private Set<String> allowedFiles = Collections.emptySet();
-    private final Set<Path> invalidFiles = new HashSet<>();
+    private final CompletableFuture<Collection<Path>> fetchPathsTask;
 
     public SyncedModLocator() throws Exception {
         this.progressFeed = Launcher.INSTANCE.environment().getProperty(Environment.Keys.PROGRESSMESSAGE.get()).orElse(msg -> {});
@@ -82,7 +70,7 @@ public final class SyncedModLocator implements IModLocator {
         if (Files.exists(cfgPath)) {
             cfg = GSON.fromJson(Files.newBufferedReader(cfgPath, StandardCharsets.UTF_8), Config.class);
         } else {
-        	LOGGER.warn("RemoteSync config remote_sync.json does not exist. All configurable values will use their default values instead.");
+            LOGGER.warn("RemoteSync config remote_sync.json does not exist. All configurable values will use their default values instead.");
             cfg = new Config();
         }
         final Path keyStorePath = gameDir.resolve(cfg.keyRingPath);
@@ -108,24 +96,16 @@ public final class SyncedModLocator implements IModLocator {
                 LOGGER.warn("Failed to fetch mod list from remote", e);
                 return new ModEntry[0];
             }
-        }).whenComplete((entries, err) -> {
-            this.allowedFiles = Arrays.stream(entries).map(e -> e.name).collect(Collectors.toSet());
-        }).thenComposeAsync(entries -> CompletableFuture.allOf(
-                Arrays.stream(entries).flatMap(e -> Stream.of(
-                        Utils.downloadIfMissingAsync(this.modDirBase.resolve(e.name), e.file, cfg.timeout, cfg.preferLocalCache, this.progressFeed),
-                        Utils.downloadIfMissingAsync(this.modDirBase.resolve(e.name + ".sig"), e.sig, cfg.timeout, cfg.preferLocalCache, this.progressFeed)
-                )).toArray(CompletableFuture[]::new)
-        ));
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            for (Path p : this.invalidFiles) {
-                try {
-                    Files.deleteIfExists(p);
-                } catch (IOException ignore) {
-                    // No-op
-                }
-            }
-            this.keyStore.saveTo(keyStorePath);
-        }, "RemoteSync Clean-up"));
+        }).thenComposeAsync(entries -> {
+            var futures = Arrays.stream(entries).flatMap(e -> Stream.of(
+                    Utils.downloadIfMissingAsync(this.modDirBase.resolve(e.name), e.file, cfg.timeout, cfg.preferLocalCache, this.progressFeed),
+                    Utils.downloadIfMissingAsync(this.modDirBase.resolve(e.name + ".sig"), e.sig, cfg.timeout, cfg.preferLocalCache, this.progressFeed)
+            )).toList();
+            return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                    .thenApply(v -> Arrays.stream(entries)
+                            .map(it -> this.modDirBase.resolve(it.name))
+                            .filter(this::isValid).toList());
+        });
     }
 
     private static PGPSignatureList getSigList(FileChannel fc) throws Exception {
@@ -134,32 +114,25 @@ public final class SyncedModLocator implements IModLocator {
             BcPGPObjectFactory factory = new BcPGPObjectFactory(input);
             Object o = factory.nextObject();
             if (o instanceof PGPCompressedData) {
-                PGPCompressedData compressedData = (PGPCompressedData)o;
+                PGPCompressedData compressedData = (PGPCompressedData) o;
                 factory = new BcPGPObjectFactory(compressedData.getDataStream());
-                sigList = (PGPSignatureList)factory.nextObject();
+                sigList = (PGPSignatureList) factory.nextObject();
             } else {
-                sigList = (PGPSignatureList)o;
+                sigList = (PGPSignatureList) o;
             }
         }
         return sigList;
     }
 
     @Override
-    public List<IModFile> scanMods() {
+    public Stream<Path> scanCandidates() {
         try {
-            this.fetchPathsTask.join();
-            return this.parent.scanMods()
-                    .stream()
-                    // Work around https://github.com/MinecraftForge/MinecraftForge/issues/6756
-                    // The signature check MUST be in the place for best-effort safety
-                    .filter(this::isValid)
-                    .filter(mod -> this.allowedFiles.contains(mod.getFileName()))
-                    .collect(Collectors.toList());
+            return this.fetchPathsTask.join().stream();
         } catch (Exception e) {
             LOGGER.error("Mod downloading worker encountered error and cannot continue. " +
                     "No mod will be loaded from the remote-synced locator. ", e);
             System.setProperty("org.teacon.sync.failed", "true");
-            return Collections.emptyList();
+            return Stream.empty();
         }
     }
 
@@ -169,35 +142,14 @@ public final class SyncedModLocator implements IModLocator {
     }
 
     @Override
-    public Path findPath(IModFile modFile, String... path) {
-        return this.parent.findPath(modFile, path);
-    }
-
-    @Override
-    public void scanFile(IModFile modFile, Consumer<Path> pathConsumer) {
-        this.parent.scanFile(modFile, pathConsumer);
-    }
-
-    @Override
-    public Optional<Manifest> findManifest(Path file) {
-        return this.parent.findManifest(file);
-    }
-
-    @Override
     public void initArguments(Map<String, ?> arguments) {
-        this.parent = Launcher.INSTANCE.environment()
-                .getProperty(Environment.Keys.MODDIRECTORYFACTORY.get())
-                .orElseThrow(() -> new RuntimeException("Cannot find ModDirectoryFactory"))
-                .build(this.modDirBase, "Remote Synced Backend");
     }
 
-    @Override
-    public boolean isValid(IModFile modFile) {
+    private boolean isValid(Path modFile) {
         LOGGER.debug("Verifying {}", modFile.getFileName());
         this.progressFeed.accept("RemoteSync: verifying " + modFile.getFileName());
-        final Path modPath = modFile.getFilePath();
-        final Path sigPath = modPath.resolveSibling(modFile.getFileName() + ".sig");
-        try (FileChannel mod = FileChannel.open(modPath, StandardOpenOption.READ)) {
+        final Path sigPath = modFile.resolveSibling(modFile.getFileName() + ".sig");
+        try (FileChannel mod = FileChannel.open(modFile, StandardOpenOption.READ)) {
             try (FileChannel sig = FileChannel.open(sigPath, StandardOpenOption.READ)) {
                 final PGPSignatureList sigList;
                 try {
@@ -215,8 +167,8 @@ public final class SyncedModLocator implements IModLocator {
                     LOGGER.debug("Verification pass for {}", modFile.getFileName());
                 } else {
                     LOGGER.warn("Verification fail for {}, will be excluded from loading", modFile.getFileName());
-                    this.invalidFiles.add(modPath.toAbsolutePath().normalize());
-                    this.invalidFiles.add(sigPath.toAbsolutePath().normalize());
+                    Files.deleteIfExists(modFile.toAbsolutePath().normalize());
+                    Files.deleteIfExists(sigPath.toAbsolutePath().normalize());
                 }
                 return pass;
             }
