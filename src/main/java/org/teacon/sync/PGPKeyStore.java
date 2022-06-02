@@ -112,6 +112,7 @@ public class PGPKeyStore {
             }
         }
         this.keyRings = new PGPPublicKeyRingCollection(keyRings.values());
+        this.saveTo(localKeyStorePath);
     }
 
     public void debugDump() {
