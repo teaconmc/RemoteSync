@@ -63,7 +63,7 @@ public final class SyncedModLocator extends AbstractJarFileLocator {
     private final CompletableFuture<Collection<Path>> fetchPathsTask;
 
     public SyncedModLocator() throws Exception {
-        this.progressFeed = Launcher.INSTANCE.environment().getProperty(Environment.Keys.PROGRESSMESSAGE.get()).orElse(msg -> {});
+        this.progressFeed = Launcher.INSTANCE.environment().getProperty(Environment.Keys.PROGRESSMESSAGE.get()).orElse(msg -> {}).andThen(LOGGER::info);
         final Path gameDir = Launcher.INSTANCE.environment().getProperty(IEnvironment.Keys.GAMEDIR.get()).orElse(Paths.get("."));
         final Path cfgPath = gameDir.resolve("remote_sync.json");
         final Config cfg;
@@ -78,13 +78,23 @@ public final class SyncedModLocator extends AbstractJarFileLocator {
         this.keyStore.debugDump();
         this.modDirBase = Files.createDirectories(gameDir.resolve(cfg.modDir));
         this.fetchPathsTask = CompletableFuture.supplyAsync(() -> {
+            var localModList = gameDir.resolve(cfg.localModList);
             try {
                 this.progressFeed.accept("RemoteSync: fetching mod list");
                 // Intentionally do not use config value to ensure that the mod list is always up-to-date
-                return Utils.fetch(cfg.modList, gameDir.resolve(cfg.localModList), cfg.timeout, false);
+                return Utils.fetch(cfg.modList, localModList, cfg.timeout, false);
             } catch (IOException e) {
-                LOGGER.warn("Failed to download mod list", e);
-                throw new RuntimeException(e);
+                if (Files.exists(localModList)) {
+                    LOGGER.warn("Failed to download mod list, fallback to local modlist", e);
+                    try {
+                        return FileChannel.open(localModList, StandardOpenOption.READ);
+                    } catch (IOException ex) {
+                        throw new RuntimeException(ex);
+                    }
+                } else {
+                    LOGGER.warn("Failed to download mod list", e);
+                    throw new RuntimeException(e);
+                }
             }
         }).handleAsync((fcModList, exc) -> {
             if (exc != null) {
