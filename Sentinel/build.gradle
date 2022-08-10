@@ -22,7 +22,7 @@ archivesBaseName = 'RemoteSyncSentinel'
 
 // We need to target the lowest version possible to make sure this still runs on pre-1.17+ (Java 16+)
 // TODO We might want to do a multi-release or something in the future.
-java.toolchain.languageVersion = JavaLanguageVersion.of(8)
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
 // Print out current JVM info for debug purpose
 println('Java: ' + System.getProperty('java.version') + ' JVM: ' + System.getProperty('java.vm.version') + '(' + System.getProperty('java.vendor') + ') Arch: ' + System.getProperty('os.arch'))
@@ -39,7 +39,7 @@ minecraft {
     //
     // Use non-default mappings at your own risk. They may not always work.
     // Simply re-run your setup task after changing the mappings to update your workspace.
-    mappings channel: 'official', version: '1.16.5'
+    mappings channel: 'official', version: '1.18.2'
 
     runs {
         client {
@@ -93,7 +93,7 @@ repositories {
 }
 
 dependencies {
-    minecraft 'net.minecraftforge:forge:1.16.5-36.2.23'
+    minecraft 'net.minecraftforge:forge:1.18.2-40.1.59'
 }
 
 // Example for how to get properties into the manifest for reading at runtime.
