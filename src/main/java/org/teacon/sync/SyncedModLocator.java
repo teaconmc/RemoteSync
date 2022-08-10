@@ -45,6 +45,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -80,26 +81,32 @@ public final class SyncedModLocator extends AbstractJarFileLocator {
         this.keyStore.debugDump();
         this.modDirBase = Files.createDirectories(gameDir.resolve(cfg.modDir));
         this.fetchPathsTask = CompletableFuture.supplyAsync(() -> {
+            Path localCache = gameDir.resolve(cfg.localModList);
             try {
                 this.progressFeed.accept("RemoteSync: fetching mod list");
                 // Intentionally do not use config value to ensure that the mod list is always up-to-date
-                return Utils.fetch(cfg.modList, gameDir.resolve(cfg.localModList), cfg.timeout, false);
+                return Utils.fetch(cfg.modList, localCache, cfg.timeout, false);
             } catch (IOException e) {
-                LOGGER.warn("Failed to download mod list", e);
-                throw new RuntimeException(e);
+                LOGGER.warn("Failed to download mod list, will try using locally cached mod list instead. Mods may be outdated.", e);
+                System.setProperty("org.teacon.sync.failed", "true");
+                try {
+                    return FileChannel.open(localCache);
+                } catch (Exception e2) {
+                    throw new RuntimeException("Failed to open locally cached mod list", e2);
+                }
             }
         }).thenApplyAsync((fcModList) -> {
             try (Reader reader = Channels.newReader(fcModList, "UTF-8")) {
                 return GSON.fromJson(reader, ModEntry[].class);
             } catch (JsonParseException e) {
-                LOGGER.warn("Error parsing modlist", e);
+                LOGGER.warn("Error parsing mod list", e);
                 throw e;
             } catch (IOException e) {
-                LOGGER.warn("Failed to fetch mod list from remote", e);
+                LOGGER.warn("Failed to open mod list file", e);
                 throw new RuntimeException(e);
             }
         }).thenComposeAsync(entries -> {
-            var futures = Arrays.stream(entries).flatMap(e -> Stream.of(
+            List<CompletableFuture<Void>> futures = Arrays.stream(entries).flatMap(e -> Stream.of(
                     Utils.downloadIfMissingAsync(this.modDirBase.resolve(e.name), e.file, cfg.timeout, cfg.preferLocalCache, this.progressFeed),
                     Utils.downloadIfMissingAsync(this.modDirBase.resolve(e.name + ".sig"), e.sig, cfg.timeout, cfg.preferLocalCache, this.progressFeed)
             )).toList();
@@ -131,8 +138,8 @@ public final class SyncedModLocator extends AbstractJarFileLocator {
         try {
             return this.fetchPathsTask.join().stream();
         } catch (Exception e) {
-            LOGGER.error("Mod downloading worker encountered error and cannot continue. " +
-                    "No mod will be loaded from the remote-synced locator. ", e instanceof CompletionException ? e.getCause() : e);
+            LOGGER.error("Mod downloading worker encountered error. " +
+                    "You may observe missing mods or outdated mods. ", e instanceof CompletionException ? e.getCause() : e);
             System.setProperty("org.teacon.sync.failed", "true");
             return Stream.empty();
         }

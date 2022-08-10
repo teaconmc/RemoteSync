@@ -155,13 +155,17 @@ public final class Utils {
                 conn.connect();
             } catch (IOException e) {
                 // Connection failed, prefer local copy instead
-                LOGGER.debug(MARKER, "Failed to download {}, fallback to local copy at {}", src, dst);
+                LOGGER.debug(MARKER, "Failed to connect to {}, fallback to local copy at {}", src, dst);
                 return FileChannel.open(dst, StandardOpenOption.READ);
             }
             if (conn instanceof HttpURLConnection) {
-                if (((HttpURLConnection) conn).getResponseCode() == HttpURLConnection.HTTP_NOT_MODIFIED) {
+                int resp = ((HttpURLConnection) conn).getResponseCode();
+                if (resp == HttpURLConnection.HTTP_NOT_MODIFIED) {
                     // If remote does not update, we use local copy.
                     LOGGER.debug(MARKER, "Remote {} does not have updates, prefer use local copy at {}", src, dst);
+                    return FileChannel.open(dst, StandardOpenOption.READ);
+                } else if (resp >= 400) {
+                    LOGGER.warn(MARKER, "Remote {} fails with status code {}, prefer use local copy at {}", src, resp, dst);
                     return FileChannel.open(dst, StandardOpenOption.READ);
                 }
             }
