@@ -24,7 +24,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
 import cpw.mods.modlauncher.Launcher;
 import cpw.mods.modlauncher.api.IEnvironment;
-import net.minecraftforge.fml.loading.moddiscovery.AbstractJarFileLocator;
+import net.minecraftforge.fml.loading.moddiscovery.AbstractJarFileModLocator;
 import net.minecraftforge.forgespi.Environment;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -52,7 +52,7 @@ import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
-public final class SyncedModLocator extends AbstractJarFileLocator {
+public final class SyncedModLocator extends AbstractJarFileModLocator {
 
     private static final Logger LOGGER = LogManager.getLogger("RemoteSync");
 
