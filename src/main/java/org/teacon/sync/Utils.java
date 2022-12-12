@@ -76,6 +76,8 @@ public final class Utils {
                 return "ECDH";
             case PublicKeyAlgorithmTags.ECDSA:
                 return "ECDSA";
+            case PublicKeyAlgorithmTags.EDDSA:
+                return "EDDSA";
             case PublicKeyAlgorithmTags.ELGAMAL_GENERAL:
             case PublicKeyAlgorithmTags.ELGAMAL_ENCRYPT:
                 return "ELGAMAL";
