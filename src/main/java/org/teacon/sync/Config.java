@@ -20,8 +20,7 @@
 
 package org.teacon.sync;
 
-import java.net.URL;
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 
 public final class Config {
@@ -29,11 +28,8 @@ public final class Config {
     /**
      * URL that points to the mod list to download. Supported protocols include
      * http, https, files (i.e. local file) and others.
-     *
-     * @see URL
-     * @see URL#getProtocol()
      */
-    public URL modList;
+    public String modList;
     /**
      * Path to the directory where all downloaded mods are held, relative to the
      * Minecraft home directory.
@@ -53,13 +49,13 @@ public final class Config {
      * List of URLs of key servers. These key servers SHOULD support the HTTP
      * Keyserver Protocol.
      */
-    public List<URL> keyServers = Collections.emptyList();
+    public List<String> keyServers = new ArrayList<>();
     /**
      * List of public keys identified by key IDs. 32-bit key ID, 64-bit key ID,
      * version 3 fingerprint and version 4 fingerprint are acceptable; these key
      * IDs SHOULD be prefixed with {@code 0x} as a mark of hexadecimal number.
      */
-    public List<String> keyIds = Collections.emptyList();
+    public List<String> keyIds = new ArrayList<>();
     /**
      * Amount of time to wait before giving up a connection, measured in milliseconds.
      */
