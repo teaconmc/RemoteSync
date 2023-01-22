@@ -20,6 +20,8 @@
 
 package org.teacon.sync;
 
+import com.electronwill.nightconfig.core.conversion.ObjectConverter;
+import com.electronwill.nightconfig.toml.TomlParser;
 import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
 import cpw.mods.modlauncher.Launcher;
@@ -36,9 +38,9 @@ import org.bouncycastle.openpgp.bc.BcPGPObjectFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
+import java.net.URL;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -51,6 +53,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class SyncedModLocator extends AbstractJarFileModLocator {
 
@@ -68,12 +72,17 @@ public final class SyncedModLocator extends AbstractJarFileModLocator {
     public SyncedModLocator() throws Exception {
         this.progressFeed = Launcher.INSTANCE.environment().getProperty(Environment.Keys.PROGRESSMESSAGE.get()).orElse(msg -> {});
         final Path gameDir = Launcher.INSTANCE.environment().getProperty(IEnvironment.Keys.GAMEDIR.get()).orElse(Paths.get("."));
-        final Path cfgPath = gameDir.resolve("remote_sync.json");
+        final Path cfgTomlPath = gameDir.resolve("remote_sync.toml");
+        final Path cfgJsonPath = gameDir.resolve("remote_sync.json");
         final Config cfg;
-        if (Files.exists(cfgPath)) {
-            cfg = GSON.fromJson(Files.newBufferedReader(cfgPath, StandardCharsets.UTF_8), Config.class);
+        if (Files.exists(cfgTomlPath)) {
+            LOGGER.info("RemoteSync config remote_sync.toml is considered as the TOML config to be read.");
+            cfg = new ObjectConverter().toObject(new TomlParser().parse(Files.newBufferedReader(cfgTomlPath, UTF_8)), Config::new);
+        } else if (Files.exists(cfgJsonPath)) {
+            LOGGER.info("RemoteSync config remote_sync.json is considered as the JSON config to be read.");
+            cfg = GSON.fromJson(Files.newBufferedReader(cfgJsonPath, UTF_8), Config.class);
         } else {
-            LOGGER.warn("RemoteSync config remote_sync.json does not exist. All configurable values will use their default values instead.");
+            LOGGER.warn("Neither remote_sync.toml nor remote_sync.json exists. All configurable values will use their default values instead.");
             cfg = new Config();
         }
         final Path keyStorePath = gameDir.resolve(cfg.keyRingPath);
@@ -85,7 +94,7 @@ public final class SyncedModLocator extends AbstractJarFileModLocator {
             try {
                 this.progressFeed.accept("RemoteSync: fetching mod list");
                 // Intentionally do not use config value to ensure that the mod list is always up-to-date
-                return Utils.fetch(cfg.modList, localCache, cfg.timeout, false);
+                return Utils.fetch(new URL(cfg.modList), localCache, cfg.timeout, false);
             } catch (IOException e) {
                 LOGGER.warn("Failed to download mod list, will try using locally cached mod list instead. Mods may be outdated.", e);
                 System.setProperty("org.teacon.sync.failed", "true");
@@ -96,7 +105,7 @@ public final class SyncedModLocator extends AbstractJarFileModLocator {
                 }
             }
         }).thenApplyAsync((fcModList) -> {
-            try (Reader reader = Channels.newReader(fcModList, StandardCharsets.UTF_8)) {
+            try (Reader reader = Channels.newReader(fcModList, UTF_8)) {
                 return GSON.fromJson(reader, ModEntry[].class);
             } catch (JsonParseException e) {
                 LOGGER.warn("Error parsing mod list", e);
@@ -185,5 +194,4 @@ public final class SyncedModLocator extends AbstractJarFileModLocator {
             return false;
         }
     }
-
 }

@@ -87,7 +87,7 @@ public final class PGPKeyStore {
 
     private final PGPPublicKeyRingCollection keyRings;
 
-    public PGPKeyStore(Path localKeyStorePath, List<URL> keyServers, List<String> keyIds) throws Exception {
+    public PGPKeyStore(Path localKeyStorePath, List<String> keyServers, List<String> keyIds) throws Exception {
         final Map<Long, PGPPublicKeyRing> keyRings = new HashMap<>();
         if (Files.exists(localKeyStorePath)) {
             LOGGER.debug(MARKER, "Try reading keys from local key ring at {}", localKeyStorePath);
@@ -99,8 +99,8 @@ public final class PGPKeyStore {
                 continue;
             }
             final String queryParams = "/pks/lookup?op=get&search=".concat(keyId);
-            for (URL keyServer : keyServers) {
-                final URL resolved = resolveSrv(keyServer);
+            for (String keyServer : keyServers) {
+                final URL resolved = resolveSrv(new URL(keyServer));
                 final URL keyQuery = new URL(resolved.getProtocol(), resolved.getHost(), resolved.getPort(), queryParams);
                 try (InputStream input = keyQuery.openStream()) {
                     LOGGER.debug(MARKER, "Receiving key {} from {}", keyId, keyServer);
