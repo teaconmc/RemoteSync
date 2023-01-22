@@ -57,7 +57,7 @@ import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
 
-public class PGPKeyStore {
+public final class PGPKeyStore {
 
     /*
      * Implementation overview
@@ -183,8 +183,7 @@ public class PGPKeyStore {
         try (InputStream wrapped = PGPUtil.getDecoderStream(input)) {
             PGPObjectFactory factory = new BcPGPObjectFactory(wrapped);
             for (Object o : factory) {
-                if (o instanceof PGPPublicKeyRing) {
-                    PGPPublicKeyRing keyRing = (PGPPublicKeyRing) o;
+                if (o instanceof PGPPublicKeyRing keyRing) {
                     keyRings.put(keyRing.getPublicKey().getKeyID(), keyRing);
                 } else {
                     LOGGER.warn(MARKER, "Invalid PGP object {} (type {}) found and ignored", o, o.getClass());

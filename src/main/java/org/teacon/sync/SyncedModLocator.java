@@ -96,7 +96,7 @@ public final class SyncedModLocator extends AbstractJarFileModLocator {
                 }
             }
         }).thenApplyAsync((fcModList) -> {
-            try (Reader reader = Channels.newReader(fcModList, "UTF-8")) {
+            try (Reader reader = Channels.newReader(fcModList, StandardCharsets.UTF_8)) {
                 return GSON.fromJson(reader, ModEntry[].class);
             } catch (JsonParseException e) {
                 LOGGER.warn("Error parsing mod list", e);
@@ -122,8 +122,7 @@ public final class SyncedModLocator extends AbstractJarFileModLocator {
         try (InputStream input = PGPUtil.getDecoderStream(Channels.newInputStream(fc))) {
             BcPGPObjectFactory factory = new BcPGPObjectFactory(input);
             Object o = factory.nextObject();
-            if (o instanceof PGPCompressedData) {
-                PGPCompressedData compressedData = (PGPCompressedData) o;
+            if (o instanceof PGPCompressedData compressedData) {
                 factory = new BcPGPObjectFactory(compressedData.getDataStream());
                 sigList = (PGPSignatureList) factory.nextObject();
             } else {

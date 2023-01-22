@@ -24,8 +24,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.Marker;
 import org.apache.logging.log4j.MarkerManager;
-import org.bouncycastle.bcpg.HashAlgorithmTags;
-import org.bouncycastle.bcpg.PublicKeyAlgorithmTags;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -39,83 +37,65 @@ import java.nio.file.Files;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+
+import static java.nio.file.StandardOpenOption.*;
+import static org.bouncycastle.bcpg.HashAlgorithmTags.*;
+import static org.bouncycastle.bcpg.PublicKeyAlgorithmTags.*;
 
 public final class Utils {
 
     private static final Logger LOGGER = LogManager.getLogger("RemoteSync");
     private static final Marker MARKER = MarkerManager.getMarker("Downloader");
 
-    private static final Set<OpenOption> OPTIONS;
-    static {
-        HashSet<OpenOption> options = new HashSet<>();
-        options.add(StandardOpenOption.CREATE);
-        options.add(StandardOpenOption.TRUNCATE_EXISTING);
-        options.add(StandardOpenOption.READ);
-        options.add(StandardOpenOption.WRITE);
-        OPTIONS = Collections.unmodifiableSet(options);
-    }
+    private static final Set<OpenOption> OPTIONS = Set.of(CREATE, TRUNCATE_EXISTING, READ, WRITE);
 
     private Utils() {
         // No instance for you
     }
 
     public static String getKeyAlgorithm(int algo) {
-        switch (algo) {
-            case PublicKeyAlgorithmTags.RSA_GENERAL:
-            case PublicKeyAlgorithmTags.RSA_ENCRYPT:
-            case PublicKeyAlgorithmTags.RSA_SIGN:
-                return "RSA";
-            case PublicKeyAlgorithmTags.DSA:
-                return "DSA";
-            case PublicKeyAlgorithmTags.ECDH:
-                return "ECDH";
-            case PublicKeyAlgorithmTags.ECDSA:
-                return "ECDSA";
-            case PublicKeyAlgorithmTags.EDDSA:
-                return "EDDSA";
-            case PublicKeyAlgorithmTags.ELGAMAL_GENERAL:
-            case PublicKeyAlgorithmTags.ELGAMAL_ENCRYPT:
-                return "ELGAMAL";
-            case PublicKeyAlgorithmTags.DIFFIE_HELLMAN:
-                return "DIFFIE_HELLMAN";
-            default:
-                return "UNKNOWN";
-        }
+        return switch (algo) {
+            case RSA_GENERAL, RSA_ENCRYPT, RSA_SIGN -> "RSA";
+            case DSA -> "DSA";
+            case ECDH -> "ECDH";
+            case ECDSA -> "ECDSA";
+            case EDDSA -> "EDDSA";
+            case ELGAMAL_GENERAL, ELGAMAL_ENCRYPT -> "ELGAMAL";
+            case DIFFIE_HELLMAN -> "DIFFIE_HELLMAN";
+            default -> "UNKNOWN";
+        };
     }
 
     public static String getHashAlgorithm(int algo) {
-        switch (algo) {
+        return switch (algo) {
             // MD
-            case HashAlgorithmTags.MD2: return "MD2";
-            case HashAlgorithmTags.MD5: return "MD5";
+            case MD2 -> "MD2";
+            case MD5 -> "MD5";
 
             // SHA
-            case HashAlgorithmTags.SHA1: return "SHA1";
-            case HashAlgorithmTags.SHA224: return "SHA224";
-            case HashAlgorithmTags.SHA256: return "SHA256";
-            case HashAlgorithmTags.SHA384: return "SHA384";
-            case HashAlgorithmTags.SHA512: return "SHA512";
-            case HashAlgorithmTags.DOUBLE_SHA: return "DOUBLE-SHA";
+            case SHA1 -> "SHA1";
+            case SHA224 -> "SHA224";
+            case SHA256 -> "SHA256";
+            case SHA384 -> "SHA384";
+            case SHA512 -> "SHA512";
+            case DOUBLE_SHA -> "DOUBLE-SHA";
 
             // RIPEMD
             // https://en.wikipedia.org/wiki/RIPEMD
-            case HashAlgorithmTags.RIPEMD160: return "RIPEMD160";
+            case RIPEMD160 -> "RIPEMD160";
 
             // Tiger
             // https://en.wikipedia.org/wiki/Tiger_(hash_function)
-            case HashAlgorithmTags.TIGER_192: return "TIGER192";
+            case TIGER_192 -> "TIGER192";
 
             // HAVAL
             // https://en.wikipedia.org/wiki/HAVAL
-            case HashAlgorithmTags.HAVAL_5_160: return "HAVAL-5-160";
-
-            default: return "UNKNOWN";
-        }
+            case HAVAL_5_160 -> "HAVAL-5-160";
+            default -> "UNKNOWN";
+        };
     }
 
     /**
@@ -150,7 +130,7 @@ public final class Utils {
         if (Files.exists(dst)) {
             if (biasedTowardLocalCache) {
                 LOGGER.debug(MARKER, "Prefer to local copy at {} according to configurations", dst);
-                return FileChannel.open(dst, StandardOpenOption.READ);
+                return FileChannel.open(dst, READ);
             }
             conn.setIfModifiedSince(Files.getLastModifiedTime(dst).toMillis());
             try {
@@ -158,17 +138,17 @@ public final class Utils {
             } catch (IOException e) {
                 // Connection failed, prefer local copy instead
                 LOGGER.debug(MARKER, "Failed to connect to {}, fallback to local copy at {}", src, dst);
-                return FileChannel.open(dst, StandardOpenOption.READ);
+                return FileChannel.open(dst, READ);
             }
             if (conn instanceof HttpURLConnection) {
                 int resp = ((HttpURLConnection) conn).getResponseCode();
                 if (resp == HttpURLConnection.HTTP_NOT_MODIFIED) {
                     // If remote does not update, we use local copy.
                     LOGGER.debug(MARKER, "Remote {} does not have updates, prefer use local copy at {}", src, dst);
-                    return FileChannel.open(dst, StandardOpenOption.READ);
+                    return FileChannel.open(dst, READ);
                 } else if (resp >= 400) {
                     LOGGER.warn(MARKER, "Remote {} fails with status code {}, prefer use local copy at {}", src, resp, dst);
-                    return FileChannel.open(dst, StandardOpenOption.READ);
+                    return FileChannel.open(dst, READ);
                 }
             }
         }
