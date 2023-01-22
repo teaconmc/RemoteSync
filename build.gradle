@@ -26,15 +26,15 @@ repositories {
 }
 
 dependencies {
-    shadow group: 'org.bouncycastle', name: 'bcpg-jdk15on', version: '1.68'
+    shadow group: 'org.bouncycastle', name: 'bcpg-jdk15on', version: '1.70'
 
     implementation group: 'net.minecraftforge', name: 'forgespi', version: '4.0.15'
     implementation group: 'cpw.mods', name: 'modlauncher', version: '9.1.3'
     implementation group: 'net.minecraftforge', name: 'fmlloader', version: '1.18.2-40.1.86'
-    implementation group: 'com.google.code.gson', name: 'gson', version: '2.8.0'
+    implementation group: 'com.google.code.gson', name: 'gson', version: '2.8.9'
     implementation group: 'org.apache.logging.log4j', name: 'log4j-api', version: '2.17.1'
 
-    testImplementation group: 'org.bouncycastle', name: 'bcpg-jdk15on', version: '1.68'
+    testImplementation group: 'org.bouncycastle', name: 'bcpg-jdk15on', version: '1.70'
 }
 
 shadowJar {
@@ -68,7 +68,7 @@ jar {
 
 publishing {
     publications {
-        release(MavenPublication) {
+        create("release", MavenPublication) {
             groupId = "org.teacon"
             artifactId = "RemoteSync-FML"
 
@@ -125,7 +125,7 @@ publishing {
 //    sign publishing.publications.release
 //}
 
-tasks.withType(PublishToMavenRepository) {
+tasks.withType(PublishToMavenRepository).configureEach {
     if (repository && repository.name == 'teacon') {
         onlyIf {
             System.env.ARCHIVE_ACCESS_KEY && System.env.ARCHIVE_SECRET_KEY
@@ -136,7 +136,7 @@ tasks.withType(PublishToMavenRepository) {
 /**
  * A simple task to pass down the artifact name and path to other GitHub actions.
  */
-task("githubActionOutput") {
+tasks.register('githubActionOutput') {
     onlyIf {
         System.env.GITHUB_ACTIONS
     }
